@@ -1,0 +1,65 @@
+---
+title: "Machine learning project for data science"
+output: html_document
+---
+##Introduction
+This analysis aims to build a predictive model for the Weight Lifting Exercises Dataset.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load R packages and download data file
+First, download and read the files. Missing values or error values are set to NA.
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(lattice)
+library(caret)
+library(randomForest)
+library(rpart)
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv","training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv","testing.csv")
+trainingfile<-fread("/Users/daxinggao/training.csv", na.strings=c("NA","#DIV/0!",""))
+testingfile<-fread("/Users/daxinggao/testing.csv", na.strings=c("NA","#DIV/0!",""))
+```
+
+## Preprocess data
+Create training and testing sets from training files. Only consider the columns that have fewer than 60% NA. And the first seven columns are also discarded.
+
+```{r}
+set.seed(1234)
+inTrain<-createDataPartition(y=trainingfile$classe,p=0.75,list=F)#create training and testing sets.
+training<-trainingfile[inTrain]
+testing<-trainingfile[-inTrain]
+NAcol<-sapply(training,function(x){sum(is.na(x))/nrow(training)})#calculate number of NA for each column
+NAcolN<-match(names(NAcol[NAcol>=0.6]),colnames(training))#columns have more than 60% NA
+preprocess<-preProcess(training[,-c(1:7,NAcolN,ncol(training)),with=F],method=c("center","scale","knnImpute"))#preprocess data, discard first seven columns/columns have more than 60% NA/last column, impute missing data with knnImpute
+trainx<-predict(preprocess,training[,-c(1:7,NAcolN,ncol(training)),with=F])
+trainnew<-cbind(trainx,training[,ncol(training),with=F])
+```
+
+## Use random forest model to fit and calculate prediction accuracy
+```{r}
+
+model<-randomForest(factor(classe) ~ .,trainnew)
+confusionMatrix(predict(model,trainx),trainnew$classe)
+```
+
+## Preprocess and predict the testing data and calculate prediction accuracy
+
+
+```{r}
+testx<-predict(preprocess,testing[,-c(1:7,NAcolN,ncol(testing)),with=F])
+testnew<-cbind(testx,testing[,ncol(testing),with=F])
+confusionMatrix(predict(model,testx),testnew$classe)
+```
+##Predict data from testing file
+```{r}
+testfilex<-predict(preprocess,testingfile[,-c(1:7,NAcolN,ncol(testingfile)),with=F])
+predict(model,testfilex)
+```
+
+##Conlusion
+The random forest model successfully predicts the Weight Lifting Exercises Dataset.
